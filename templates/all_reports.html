@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}All Attendance Reports — AttendAI{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h3 class="mb-0">All Class Attendance Reports</h3>
+    <small class="text-muted">Select a class to view detailed session-by-session reports</small>
+  </div>
+  <a href="{{ url_for('classes.dashboard') }}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i> Dashboard
+  </a>
+</div>
+
+{% if summary %}
+<div class="row g-3">
+  {% for item in summary %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card h-100">
+      <div class="card-body d-flex flex-column">
+        <h5 class="card-title mb-1">{{ item.class.display_name }}</h5>
+        <p class="text-muted small mb-3">
+          <i class="bi bi-people-fill me-1"></i> {{ item.class.students|length }} Student(s)
+        </p>
+        
+        <div class="mb-3 text-secondary small">
+          <div><strong>Total Sessions Saved:</strong> {{ item.total_records }}</div>
+          <div><strong>Latest Session:</strong> {{ item.last_session or 'None' }}</div>
+        </div>
+
+        <a href="{{ url_for('attendance.report', class_id=item.class.id) }}" class="btn btn-outline-primary mt-auto">
+          <i class="bi bi-clipboard-data-fill me-1"></i> View Full Report
+        </a>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-journal-x fs-1"></i>
+  <p class="mt-3">No classes found.</p>
+</div>
+{% endif %}
+{% endblock %}

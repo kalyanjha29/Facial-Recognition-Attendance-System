@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Attendance Report — {{ cls.display_name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h3 class="mb-0">Attendance Report — {{ cls.display_name }}</h3>
+    <small class="text-muted">Total Sessions Conducted: {{ total_sessions }}</small>
+  </div>
+  <div>
+    <a href="{{ url_for('attendance.upload_photo', class_id=cls.id) }}" class="btn btn-primary me-2">
+      <i class="bi bi-camera-fill me-1"></i> New Session
+    </a>
+    <a href="{{ url_for('classes.class_detail', class_id=cls.id) }}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i> Back
+    </a>
+  </div>
+</div>
+
+<!-- Student Percentage Summary Table -->
+<div class="card mb-4">
+  <div class="card-header bg-light d-flex justify-content-between align-items-center">
+    <span class="fw-bold"><i class="bi bi-person-check-fill me-1"></i> Student Attendance Percentage Summary</span>
+    <span class="badge bg-secondary">{{ student_stats|length }} Student(s)</span>
+  </div>
+  <div class="card-body p-0">
+    {% if student_stats %}
+    <table class="table mb-0 align-middle table-hover">
+      <thead class="table-light">
+        <tr>
+          <th>Roll No.</th>
+          <th>Name</th>
+          <th class="text-center">Present</th>
+          <th class="text-center">Absent</th>
+          <th class="text-center">Total Sessions</th>
+          <th class="text-center">Attendance %</th>
+          <th class="text-center">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for stat in student_stats %}
+        <tr>
+          <td><strong>{{ stat.student.roll_no }}</strong></td>
+          <td>{{ stat.student.name }}</td>
+          <td class="text-center text-success fw-bold">{{ stat.present_count }}</td>
+          <td class="text-center text-danger fw-bold">{{ stat.absent_count }}</td>
+          <td class="text-center">{{ total_sessions }}</td>
+          <td class="text-center fw-bold fs-6">
+            {{ stat.percentage }}%
+          </td>
+          <td class="text-center">
+            {% if stat.percentage >= 75.0 %}
+              <span class="badge bg-success">Eligible (&ge;75%)</span>
+            {% elif stat.percentage >= 60.0 %}
+              <span class="badge bg-warning text-dark">Warning (&lt;75%)</span>
+            {% else %}
+              <span class="badge bg-danger">Low Attendance (&lt;60%)</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="text-center py-4 text-muted">No students registered in this class.</div>
+    {% endif %}
+  </div>
+</div>
+
+<h4 class="mb-3"><i class="bi bi-calendar-check me-2"></i>Session Breakdown</h4>
+
+{% if by_date %}
+  {% for session_date, records in by_date %}
+  <div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span><i class="bi bi-calendar-event me-1"></i> <strong>{{ session_date }}</strong></span>
+      <span class="text-muted small">
+        {{ records|selectattr('status', 'equalto', 'Present')|list|length }} / {{ records|length }} Present
+      </span>
+    </div>
+    <div class="card-body p-0">
+      <table class="table mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Roll No.</th>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Source</th>
+            <th>Confidence</th>
+            <th class="text-end">Correct</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for r in records|sort(attribute='student.roll_no') %}
+          <tr>
+            <td>{{ r.student.roll_no }}</td>
+            <td>{{ r.student.name }}</td>
+            <td>
+              {% if r.status == 'Present' %}
+                <span class="badge badge-present">Present</span>
+              {% else %}
+                <span class="badge badge-absent">Absent</span>
+              {% endif %}
+            </td>
+            <td><span class="text-muted small">{{ r.source }}</span></td>
+            <td><span class="text-muted small">{{ r.confidence if r.confidence is not none else '—' }}</span></td>
+            <td class="text-end">
+              <form method="POST" action="{{ url_for('attendance.toggle', record_id=r.id) }}">
+                <button class="btn btn-sm btn-outline-secondary">
+                  Mark {{ 'Absent' if r.status == 'Present' else 'Present' }}
+                </button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+<div class="text-center py-4 text-muted">
+  <i class="bi bi-clipboard-x fs-1"></i>
+  <p class="mt-2">No attendance sessions recorded yet.</p>
+</div>
+{% endif %}
+{% endblock %}
