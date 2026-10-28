@@ -22,12 +22,23 @@ def _get_app():
     """Lazily instantiate InsightFace FaceAnalysis once."""
     global _app
     if _app is None:
-        # buffalo_l includes RetinaFace for detection and ArcFace for embeddings
         _app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
-        # Increased det_size to (1280, 1280) to detect small faces in group photos
-        _app.prepare(ctx_id=0, det_size=(1280, 1280))
+        # Explicitly lower det_thresh to 0.35 to capture angled/variant lighting faces
+        _app.prepare(ctx_id=0, det_thresh=0.35, det_size=(640, 640))
     return _app
 
+def preprocess_image(image_bgr, max_dim=1024):
+    """Helper to resize oversized images so detection anchors hit reliably."""
+    if image_bgr is None or image_bgr.size == 0:
+        return None
+
+    h, w = image_bgr.shape[:2]
+    if max(h, w) > max_dim:
+        scale = max_dim / float(max(h, w))
+        image_bgr = cv2.resize(
+            image_bgr, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA
+        )
+    return image_bgr
 
 def detect_faces(image_bgr):
     """Detect faces in a BGR image using InsightFace. Returns a list of (x, y, w, h) boxes."""
@@ -43,25 +54,31 @@ def detect_faces(image_bgr):
 
 
 def extract_largest_face_encoding(image_bgr):
+    """Used during student registration.
+
+    Finds the largest detected face and returns its 512-d normalized embedding
+    array, or None if no face is found.
     """
-    Used during student registration. Finds the largest detected face 
-    and returns its 512-d normalized embedding array, or None if no face is found.
-    """
+    image_bgr = preprocess_image(image_bgr)
+    if image_bgr is None:
+        return None
+
     app = _get_app()
     faces = app.get(image_bgr)
     if not faces:
         return None
 
     # Get face with largest bounding box area
-    largest_face = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
-    
+    largest_face = max(
+        faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1])
+    )
+
     # Return normalized 512-d embedding
     embedding = largest_face.embedding
     norm = np.linalg.norm(embedding)
     if norm > 0:
         embedding = embedding / norm
     return embedding
-
 
 def _model_path(models_dir, class_id):
     return os.path.join(models_dir, f"class_{class_id}_embeddings.json")
